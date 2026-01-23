@@ -234,63 +234,9 @@
       cursor: pointer;
     }
 
-    .shop-item button.is-locked {
+    .shop-item button:disabled {
       background: #2c3554;
-      cursor: pointer;
-      opacity: 0.75;
-    }
-
-    .shop-item .item-meta {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      font-size: 12px;
-      color: #9aa0c2;
-    }
-
-    .shop-item .item-tag {
-      background: #0d1322;
-      padding: 2px 6px;
-      border-radius: 8px;
-      color: #c4c8e6;
-    }
-
-    .shop-item.shake {
-      animation: shake 0.4s ease;
-      border-color: var(--accent-2);
-    }
-
-    @keyframes shake {
-      0% { transform: translateX(0); }
-      25% { transform: translateX(-4px); }
-      50% { transform: translateX(4px); }
-      75% { transform: translateX(-3px); }
-      100% { transform: translateX(0); }
-    }
-
-    .hint {
-      position: absolute;
-      right: 16px;
-      top: 10px;
-      background: var(--accent-2);
-      color: var(--ink);
-      padding: 4px 8px;
-      border-radius: 999px;
-      font-size: 11px;
-      font-weight: 700;
-      animation: floatHint 1s ease forwards;
-      pointer-events: none;
-    }
-
-    @keyframes floatHint {
-      0% {
-        opacity: 1;
-        transform: translateY(0);
-      }
-      100% {
-        opacity: 0;
-        transform: translateY(-14px);
-      }
+      cursor: not-allowed;
     }
 
     .progress {
@@ -486,66 +432,31 @@
     function rebuildShop() {
       shopList.innerHTML = "";
 
-      const buildItem = (item, type, index) => {
+      const buildItem = (item, type) => {
         const cost = upgradeCost(item);
         const wrapper = document.createElement("div");
         wrapper.className = "shop-item";
-        wrapper.dataset.type = type;
-        wrapper.dataset.index = index;
         const info = document.createElement("div");
         info.innerHTML = `
           <strong>${item.name}</strong><br />
           <span style="font-size:12px;color:#b0b5d8">${item.desc}</span><br />
-          <div class="item-meta">
-            <span class="item-tag">Owned: ${item.owned}</span>
-            <span class="item-tag item-cost">Cost: ${cost}</span>
-            <span class="item-tag">${type === "pps" ? `+${item.pps} PPS` : `+${item.power} Power`}</span>
-          </div>
+          <span style="font-size:12px;color:#9aa0c2">Owned: ${item.owned} • Cost: ${cost}</span>
         `;
         const button = document.createElement("button");
-        button.className = "buy-button";
-        button.textContent = `Buy`;
+        button.textContent = "Buy";
+        button.disabled = state.petals < cost;
+        button.addEventListener("click", () => purchase(item, type));
         wrapper.append(info, button);
         shopList.appendChild(wrapper);
       };
 
-      state.upgrades.forEach((item, index) => buildItem(item, "pps", index));
-      state.clickUpgrades.forEach((item, index) => buildItem(item, "power", index));
-      updateShopState();
+      state.upgrades.forEach((item) => buildItem(item, "pps"));
+      state.clickUpgrades.forEach((item) => buildItem(item, "power"));
     }
 
-    function updateShopState() {
-      shopList.querySelectorAll(".shop-item").forEach((itemEl) => {
-        const type = itemEl.dataset.type;
-        const index = Number(itemEl.dataset.index);
-        const item = type === "pps" ? state.upgrades[index] : state.clickUpgrades[index];
-        const cost = upgradeCost(item);
-        const costEl = itemEl.querySelector(".item-cost");
-        const button = itemEl.querySelector(".buy-button");
-        if (costEl) costEl.textContent = `Cost: ${cost}`;
-        if (button) {
-          const locked = state.petals < cost;
-          button.classList.toggle("is-locked", locked);
-          button.textContent = locked ? `Need ${cost - Math.floor(state.petals)}` : "Buy";
-        }
-      });
-    }
-
-    function purchase(item, type, itemEl) {
+    function purchase(item, type) {
       const cost = upgradeCost(item);
-      if (state.petals < cost) {
-        if (itemEl) {
-          itemEl.classList.remove("shake");
-          void itemEl.offsetWidth;
-          itemEl.classList.add("shake");
-          const hint = document.createElement("div");
-          hint.className = "hint";
-          hint.textContent = `Need ${cost - Math.floor(state.petals)}`;
-          itemEl.appendChild(hint);
-          setTimeout(() => hint.remove(), 1000);
-        }
-        return;
-      }
+      if (state.petals < cost) return;
       state.petals -= cost;
       item.owned += 1;
       if (type === "pps") {
@@ -555,7 +466,7 @@
       }
       updateStory();
       updateUI();
-      updateShopState();
+      rebuildShop();
     }
 
     function pulse(event) {
@@ -563,7 +474,7 @@
       spawnBurst(event);
       updateStory();
       updateUI();
-      updateShopState();
+      rebuildShop();
     }
 
     function updateStory() {
@@ -605,22 +516,11 @@
     function tick() {
       state.petals += state.pps / 10;
       updateUI();
-      updateShopState();
+      rebuildShop();
     }
 
     setInterval(tick, 100);
     coreButton.addEventListener("click", pulse);
-    shopList.addEventListener("click", (event) => {
-      const button = event.target.closest(".buy-button");
-      if (!button) return;
-      const itemEl = button.closest(".shop-item");
-      if (!itemEl) return;
-      const type = itemEl.dataset.type;
-      const index = Number(itemEl.dataset.index);
-      const item = type === "pps" ? state.upgrades[index] : state.clickUpgrades[index];
-      purchase(item, type, itemEl);
-      updateShopState();
-    });
 
     const canvas = document.getElementById("starfield");
     const ctx = canvas.getContext("2d");
