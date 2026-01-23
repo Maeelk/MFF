@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ChronoBloom: Incremental Odyssey</title>
+  <style>
+    :root {
+      --ink: #0b0e16;
+      --panel: #121827;
+      --panel-2: #1d263b;
+      --accent: #2cf3b5;
+      --accent-2: #ff7a59;
+      --accent-3: #6f7bff;
+      --accent-4: #ffd166;
+      --accent-5: #fb3b6f;
+      --light: #f7f7ff;
+      --shadow: rgba(0, 0, 0, 0.25);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: "Segoe UI", Tahoma, sans-serif;
+    }
+
+    body {
+      background: var(--ink);
+      color: var(--light);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: stretch;
+      padding: 20px;
+    }
+
+    .game-shell {
+      width: min(1200px, 100%);
+      display: grid;
+      grid-template-columns: minmax(300px, 1.4fr) minmax(280px, 1fr);
+      gap: 20px;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid #2b3550;
+      border-radius: 18px;
+      box-shadow: 0 18px 40px var(--shadow);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero {
+      padding: 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .hero-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .hero h1 {
+      font-size: 28px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    .badge {
+      background: var(--accent-2);
+      color: var(--ink);
+      padding: 6px 14px;
+      border-radius: 999px;
+      font-weight: 700;
+      font-size: 12px;
+      text-transform: uppercase;
+    }
+
+    .resource-bar {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+
+    .resource {
+      background: var(--panel-2);
+      border-radius: 14px;
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .resource span {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #c4c8e6;
+    }
+
+    .resource strong {
+      font-size: 20px;
+    }
+
+    .bloom-core {
+      flex: 1;
+      display: grid;
+      place-items: center;
+      position: relative;
+      min-height: 340px;
+    }
+
+    canvas#starfield {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+    }
+
+    .core-button {
+      width: 220px;
+      height: 220px;
+      border-radius: 50%;
+      background: var(--accent);
+      border: 8px solid #1b9e78;
+      box-shadow: 0 0 0 12px rgba(44, 243, 181, 0.15);
+      display: grid;
+      place-items: center;
+      color: var(--ink);
+      font-size: 20px;
+      font-weight: 800;
+      text-transform: uppercase;
+      cursor: pointer;
+      z-index: 1;
+      position: relative;
+      transition: transform 0.2s ease;
+    }
+
+    .core-button:active {
+      transform: scale(0.96);
+    }
+
+    .orbiting {
+      position: absolute;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--accent-4);
+      animation: orbit 10s linear infinite;
+      z-index: 1;
+    }
+
+    .orbiting:nth-child(2) {
+      width: 22px;
+      height: 22px;
+      background: var(--accent-3);
+      animation-duration: 14s;
+    }
+
+    .orbiting:nth-child(3) {
+      width: 12px;
+      height: 12px;
+      background: var(--accent-5);
+      animation-duration: 18s;
+    }
+
+    @keyframes orbit {
+      from {
+        transform: rotate(0deg) translateX(140px);
+      }
+      to {
+        transform: rotate(360deg) translateX(140px);
+      }
+    }
+
+    .story {
+      background: #151b2f;
+      border-radius: 14px;
+      padding: 16px 20px;
+      line-height: 1.4;
+      font-size: 14px;
+      color: #c4c8e6;
+    }
+
+    .shop {
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .shop h2 {
+      font-size: 20px;
+      letter-spacing: 0.5px;
+    }
+
+    .shop-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      overflow-y: auto;
+    }
+
+    .shop-item {
+      background: var(--panel-2);
+      border-radius: 14px;
+      padding: 12px;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      align-items: center;
+      border: 1px solid transparent;
+      transition: border 0.2s ease, transform 0.2s ease;
+    }
+
+    .shop-item:hover {
+      border-color: var(--accent-3);
+      transform: translateY(-2px);
+    }
+
+    .shop-item button {
+      background: var(--accent-3);
+      border: none;
+      color: white;
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .shop-item button.is-locked {
+      background: #2c3554;
+      cursor: pointer;
+      opacity: 0.75;
+    }
+
+    .shop-item .item-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      font-size: 12px;
+      color: #9aa0c2;
+    }
+
+    .shop-item .item-tag {
+      background: #0d1322;
+      padding: 2px 6px;
+      border-radius: 8px;
+      color: #c4c8e6;
+    }
+
+    .shop-item.shake {
+      animation: shake 0.4s ease;
+      border-color: var(--accent-2);
+    }
+
+    @keyframes shake {
+      0% { transform: translateX(0); }
+      25% { transform: translateX(-4px); }
+      50% { transform: translateX(4px); }
+      75% { transform: translateX(-3px); }
+      100% { transform: translateX(0); }
+    }
+
+    .hint {
+      position: absolute;
+      right: 16px;
+      top: 10px;
+      background: var(--accent-2);
+      color: var(--ink);
+      padding: 4px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+      animation: floatHint 1s ease forwards;
+      pointer-events: none;
+    }
+
+    @keyframes floatHint {
+      0% {
+        opacity: 1;
+        transform: translateY(0);
+      }
+      100% {
+        opacity: 0;
+        transform: translateY(-14px);
+      }
+    }
+
+    .progress {
+      background: #0d1322;
+      border-radius: 999px;
+      overflow: hidden;
+      height: 10px;
+    }
+
+    .progress-bar {
+      height: 100%;
+      background: var(--accent-4);
+      width: 0%;
+      transition: width 0.2s ease;
+    }
+
+    .footer {
+      font-size: 12px;
+      color: #9aa0c2;
+      text-align: center;
+      padding: 10px 0 0;
+    }
+
+    .burst {
+      position: absolute;
+      pointer-events: none;
+      font-weight: 700;
+      color: var(--accent-2);
+      animation: floatUp 1.2s ease forwards;
+      z-index: 2;
+    }
+
+    @keyframes floatUp {
+      0% {
+        transform: translate(-50%, 0) scale(1);
+        opacity: 1;
+      }
+      100% {
+        transform: translate(-50%, -80px) scale(1.3);
+        opacity: 0;
+      }
+    }
+
+    @media (max-width: 900px) {
+      .game-shell {
+        grid-template-columns: 1fr;
+      }
+      .bloom-core {
+        min-height: 300px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="game-shell">
+    <section class="panel hero">
+      <div class="hero-header">
+        <div>
+          <h1>ChronoBloom</h1>
+          <p>Weave time petals into a thriving chronicle.</p>
+        </div>
+        <span class="badge">Incremental</span>
+      </div>
+
+      <div class="resource-bar">
+        <div class="resource">
+          <span>Chrono Petals</span>
+          <strong id="petals">0</strong>
+        </div>
+        <div class="resource">
+          <span>Pulse per click</span>
+          <strong id="power">1</strong>
+        </div>
+        <div class="resource">
+          <span>Pulse per second</span>
+          <strong id="pps">0</strong>
+        </div>
+      </div>
+
+      <div class="bloom-core">
+        <canvas id="starfield"></canvas>
+        <div class="orbiting"></div>
+        <div class="orbiting"></div>
+        <div class="orbiting"></div>
+        <button class="core-button" id="coreButton">
+          Pulse Bloom
+        </button>
+      </div>
+
+      <div class="story" id="story">
+        The ChronoBloom rests dormant. Each pulse sends petals through time. Build a garden of
+        sentient tools to multiply its rhythm.
+      </div>
+
+      <div class="progress">
+        <div class="progress-bar" id="epochProgress"></div>
+      </div>
+
+      <div class="footer">Reach new epochs to unlock upgrades.</div>
+    </section>
+
+    <aside class="panel shop">
+      <h2>Bloomcraft Workshop</h2>
+      <div class="shop-list" id="shopList"></div>
+    </aside>
+  </div>
+
+  <script>
+    const petalsEl = document.getElementById("petals");
+    const powerEl = document.getElementById("power");
+    const ppsEl = document.getElementById("pps");
+    const storyEl = document.getElementById("story");
+    const progressEl = document.getElementById("epochProgress");
+    const shopList = document.getElementById("shopList");
+    const coreButton = document.getElementById("coreButton");
+
+    const state = {
+      petals: 0,
+      power: 1,
+      pps: 0,
+      epoch: 1,
+      epochGoal: 120,
+      upgrades: [
+        {
+          name: "Chrono Bees",
+          desc: "Tiny drones that pollinate seconds.",
+          baseCost: 20,
+          owned: 0,
+          pps: 1,
+        },
+        {
+          name: "Pulse Loom",
+          desc: "Weaves background pulses.",
+          baseCost: 80,
+          owned: 0,
+          pps: 5,
+        },
+        {
+          name: "Nebula Library",
+          desc: "Stores lore and echoes of time.",
+          baseCost: 250,
+          owned: 0,
+          pps: 14,
+        },
+        {
+          name: "Aurora Engine",
+          desc: "Ignites a sky of synchronized pulses.",
+          baseCost: 900,
+          owned: 0,
+          pps: 36,
+        },
+      ],
+      clickUpgrades: [
+        {
+          name: "Bloom Gloves",
+          desc: "Double your pulse power.",
+          baseCost: 50,
+          owned: 0,
+          power: 1,
+        },
+        {
+          name: "Chrono Gauntlet",
+          desc: "Amplify pulses further.",
+          baseCost: 200,
+          owned: 0,
+          power: 3,
+        },
+        {
+          name: "Starlight Crown",
+          desc: "Command a new cadence.",
+          baseCost: 750,
+          owned: 0,
+          power: 7,
+        },
+      ],
+      storyBeats: [
+        "The ChronoBloom stirs, tasting the air.",
+        "Its petals map the orbit of ancient hours.",
+        "The garden whispers in sync with your rhythm.",
+        "A constellation of helpers forms above the core.",
+        "Epochs coil into a radiant spiral of growth.",
+      ],
+    };
+
+    function format(value) {
+      return Math.floor(value).toLocaleString();
+    }
+
+    function upgradeCost(item) {
+      return Math.floor(item.baseCost * Math.pow(1.18, item.owned));
+    }
+
+    function rebuildShop() {
+      shopList.innerHTML = "";
+
+      const buildItem = (item, type, index) => {
+        const cost = upgradeCost(item);
+        const wrapper = document.createElement("div");
+        wrapper.className = "shop-item";
+        wrapper.dataset.type = type;
+        wrapper.dataset.index = index;
+        const info = document.createElement("div");
+        info.innerHTML = `
+          <strong>${item.name}</strong><br />
+          <span style="font-size:12px;color:#b0b5d8">${item.desc}</span><br />
+          <div class="item-meta">
+            <span class="item-tag">Owned: ${item.owned}</span>
+            <span class="item-tag item-cost">Cost: ${cost}</span>
+            <span class="item-tag">${type === "pps" ? `+${item.pps} PPS` : `+${item.power} Power`}</span>
+          </div>
+        `;
+        const button = document.createElement("button");
+        button.className = "buy-button";
+        button.textContent = `Buy`;
+        wrapper.append(info, button);
+        shopList.appendChild(wrapper);
+      };
+
+      state.upgrades.forEach((item, index) => buildItem(item, "pps", index));
+      state.clickUpgrades.forEach((item, index) => buildItem(item, "power", index));
+      updateShopState();
+    }
+
+    function updateShopState() {
+      shopList.querySelectorAll(".shop-item").forEach((itemEl) => {
+        const type = itemEl.dataset.type;
+        const index = Number(itemEl.dataset.index);
+        const item = type === "pps" ? state.upgrades[index] : state.clickUpgrades[index];
+        const cost = upgradeCost(item);
+        const costEl = itemEl.querySelector(".item-cost");
+        const button = itemEl.querySelector(".buy-button");
+        if (costEl) costEl.textContent = `Cost: ${cost}`;
+        if (button) {
+          const locked = state.petals < cost;
+          button.classList.toggle("is-locked", locked);
+          button.textContent = locked ? `Need ${cost - Math.floor(state.petals)}` : "Buy";
+        }
+      });
+    }
+
+    function purchase(item, type, itemEl) {
+      const cost = upgradeCost(item);
+      if (state.petals < cost) {
+        if (itemEl) {
+          itemEl.classList.remove("shake");
+          void itemEl.offsetWidth;
+          itemEl.classList.add("shake");
+          const hint = document.createElement("div");
+          hint.className = "hint";
+          hint.textContent = `Need ${cost - Math.floor(state.petals)}`;
+          itemEl.appendChild(hint);
+          setTimeout(() => hint.remove(), 1000);
+        }
+        return;
+      }
+      state.petals -= cost;
+      item.owned += 1;
+      if (type === "pps") {
+        state.pps += item.pps;
+      } else {
+        state.power += item.power;
+      }
+      updateStory();
+      updateUI();
+      updateShopState();
+    }
+
+    function pulse(event) {
+      state.petals += state.power;
+      spawnBurst(event);
+      updateStory();
+      updateUI();
+      updateShopState();
+    }
+
+    function updateStory() {
+      const beatIndex = Math.min(state.storyBeats.length - 1, Math.floor(state.petals / 150));
+      storyEl.textContent = state.storyBeats[beatIndex];
+    }
+
+    function updateEpoch() {
+      if (state.petals >= state.epochGoal) {
+        state.epoch += 1;
+        state.epochGoal = Math.floor(state.epochGoal * 1.35);
+        state.power += 2;
+        state.pps += 3;
+      }
+    }
+
+    function updateUI() {
+      updateEpoch();
+      petalsEl.textContent = format(state.petals);
+      powerEl.textContent = format(state.power);
+      ppsEl.textContent = format(state.pps);
+      const progress = Math.min(100, (state.petals / state.epochGoal) * 100);
+      progressEl.style.width = `${progress}%`;
+    }
+
+    function spawnBurst(event) {
+      const burst = document.createElement("div");
+      burst.className = "burst";
+      burst.textContent = `+${state.power}`;
+      const rect = coreButton.getBoundingClientRect();
+      const x = event?.clientX ?? rect.left + rect.width / 2;
+      const y = event?.clientY ?? rect.top + rect.height / 2;
+      burst.style.left = `${x - rect.left}px`;
+      burst.style.top = `${y - rect.top}px`;
+      coreButton.appendChild(burst);
+      setTimeout(() => burst.remove(), 1200);
+    }
+
+    function tick() {
+      state.petals += state.pps / 10;
+      updateUI();
+      updateShopState();
+    }
+
+    setInterval(tick, 100);
+    coreButton.addEventListener("click", pulse);
+    shopList.addEventListener("click", (event) => {
+      const button = event.target.closest(".buy-button");
+      if (!button) return;
+      const itemEl = button.closest(".shop-item");
+      if (!itemEl) return;
+      const type = itemEl.dataset.type;
+      const index = Number(itemEl.dataset.index);
+      const item = type === "pps" ? state.upgrades[index] : state.clickUpgrades[index];
+      purchase(item, type, itemEl);
+      updateShopState();
+    });
+
+    const canvas = document.getElementById("starfield");
+    const ctx = canvas.getContext("2d");
+    let stars = [];
+
+    function resizeCanvas() {
+      canvas.width = canvas.offsetWidth;
+      canvas.height = canvas.offsetHeight;
+      stars = Array.from({ length: 80 }, () => ({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        size: 2 + Math.random() * 4,
+        speed: 0.2 + Math.random() * 0.6,
+        color: ["#2cf3b5", "#ff7a59", "#6f7bff", "#ffd166"][Math.floor(Math.random() * 4)],
+      }));
+    }
+
+    function animateStars() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      stars.forEach((star) => {
+        star.y += star.speed;
+        if (star.y > canvas.height + 10) {
+          star.y = -10;
+          star.x = Math.random() * canvas.width;
+        }
+        ctx.fillStyle = star.color;
+        ctx.fillRect(star.x, star.y, star.size, star.size);
+      });
+      requestAnimationFrame(animateStars);
+    }
+
+    window.addEventListener("resize", resizeCanvas);
+    resizeCanvas();
+    animateStars();
+    updateUI();
+    rebuildShop();
+  </script>
+</body>
+</html>
